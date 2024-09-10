@@ -1,0 +1,153 @@
+                                                     Ass 4
+....................................................................................................................................
+Q1.Retrieve the name of the students whose name starts with ‘S’ and contains ‘r’
+as the second last character.
+
+=>
+select name from students where name like 'S%a_';
+......................................
+Q2.Retrieve the name of the youngest student(s) from the ‘CST’ department
+along with the total marks obtained by him (them).
+
+=>
+SELECT name, 
+       SUM(marks) AS marks
+FROM crs_regd 
+JOIN students 
+  ON crs_regd.crs_rollno = students.rollno
+WHERE students.bdate = (
+    SELECT MIN(bdate)
+    FROM students
+)
+GROUP BY name;
+
+.......................................
+Q3.Find the age of all the students.
+=>
+SELECT 
+    name, 
+    FLOOR((CURRENT_DATE - bdate) / 365.25) AS age
+FROM students;
+                                                       ASS 5
+.............................................................................................................................
+
+Q4.
+Retrieve the name of the student(s) who obtained second highest marks in
+‘DBMS’.
+=>
+	select name,marks
+from students
+join crs_regd c1
+on students.rollno=c1.crs_rollno
+where c1.crs_cd='DB101' and 1=(
+	select count(distinct marks)
+	from crs_regd c2
+	where c2.marks>c1.marks
+	and crs_cd='DB101'
+)
+...............................
+Q5.Find out the differences between highest and lowest marks obtained in each
+subject.
+=>
+SELECT crs_name, 
+       MAX(marks) - MIN(marks) AS marks_difference
+FROM crs_regd
+JOIN crs_offrd
+  ON crs_regd.crs_cd = crs_offrd.crs_code
+GROUP BY crs_name;
+................................
+Q6.Assuming the existance of several interdepartmental courses, retrieve the
+name of the student(s) who is(are) studing under at least one faculty from
+each department.
+=>
+SELECT s.name FROM students s
+JOIN crs_regd r ON s.rollno = r.crs_rollno
+JOIN crs_offrd o ON r.crs_cd = o.crs_code
+JOIN faculty f ON o.crs_fac_cd = f.fac_code
+GROUP BY s.name, s.rollno
+HAVING COUNT(DISTINCT f.fac_dept) = (SELECT COUNT(DISTINCT deptcode) FROM depts);
+
+..................................
+Q7.Assuming the existance of several interdepartmental courses, retrieve the
+name of the student(s) who is(are) studing under the faculties only from
+his(their) own department.
+=>
+(SELECT DISTINCT s.name FROM students s
+JOIN crs_regd r ON s.rollno = r.crs_rollno
+JOIN crs_offrd o ON r.crs_cd = o.crs_code
+JOIN faculty f ON o.crs_fac_cd = f.fac_code
+WHERE s.deptcode = f.fac_dept)
+EXCEPT 
+(SELECT DISTINCT s.name FROM students s
+JOIN crs_regd r ON s.rollno = r.crs_rollno
+JOIN crs_offrd o ON r.crs_cd = o.crs_code
+JOIN faculty f ON o.crs_fac_cd = f.fac_code
+WHERE s.deptcode <> f.fac_dept);
+								ASS 6
+......................................................................................................................................
+Q8.Display the highest parent incomes, in descending order, for each
+department excluding ‘ARCH’ such that only those highest parent incomes
+will appear that are below 50,000.
+=>
+SELECT name, 
+       parent_inc, 
+       crs_cd
+FROM students s
+JOIN crs_regd c
+  ON s.rollno = c.crs_rollno
+GROUP BY name, 
+         parent_inc, 
+         crs_cd
+HAVING parent_inc < 50000 
+   AND crs_cd != 'ARCH'
+ORDER BY parent_inc DESC;
+...........................................
+Q9.Retrieve the fifth highest parent income for hostel number 5.
+=>
+SELECT name, 
+       parent_inc
+FROM students s1
+WHERE s1.hostel = 5 
+  AND 4 = (
+    SELECT COUNT(DISTINCT name)
+    FROM students s2
+    WHERE s2.parent_inc > s1.parent_inc 
+      AND s2.hostel = 5
+  );
+
+............................................
+Q10.Find the roll number of the students from each department who obtained
+highest total marks in their own department.
+=>
+-- Step 1: Calculate total marks for each student in each department
+
+WITH TotalMarks AS (
+    SELECT cr.crs_rollno, 
+           s.deptcode, 
+           SUM(cr.marks) AS Total
+    FROM crs_regd cr
+    JOIN students s
+      ON cr.crs_rollno = s.rollno
+    GROUP BY cr.crs_rollno, 
+             s.deptcode
+),
+
+-- Step 2: Find the maximum total marks for each department
+
+MaxMarks AS (
+    SELECT deptcode, 
+           MAX(Total) AS MaxTotal
+    FROM TotalMarks
+    GROUP BY deptcode
+)
+
+-- Step 3: Retrieve roll numbers of students with the highest marks in their department
+
+SELECT tm.crs_rollno, 
+       tm.deptcode
+FROM TotalMarks tm
+JOIN MaxMarks mm
+  ON tm.deptcode = mm.deptcode 
+ AND tm.Total = mm.MaxTotal;
+
+
